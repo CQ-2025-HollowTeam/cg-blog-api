@@ -1,0 +1,157 @@
+// This is your Prisma schema file,
+// learn more about it in the docs: https://pris.ly/d/prisma-schema
+
+// Looking for ways to speed up your queries, or scale easily with your serverless or edge functions?
+// Try Prisma Accelerate: https://pris.ly/cli/accelerate-init
+
+generator client {
+    provider = "prisma-client-js"
+}
+
+datasource db {
+    provider = "mysql"
+    url      = env("DATABASE_URL")
+}
+
+model User {
+    id       String  @id @default(uuid())
+    username String  @unique
+    email    String  @unique
+    name     String
+    password String  @db.Text
+    role     Int     @default(0) // 0 = user, 1 = editor, 2 = admin
+    isActive Boolean @default(true)
+
+    // Relations
+    authProviders UserAuthProvider[]
+    posts         Post[]
+    postComments  PostComment[]
+    postReactions PostReaction[]
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model AuthProviders {
+    id   Int    @id @default(autoincrement())
+    name String // e.g., "google", "discord"
+    slug String @unique
+
+    // Relations
+    userAuthProviders UserAuthProvider[]
+}
+
+model UserAuthProvider {
+    id             Int    @id @default(autoincrement())
+    providerUserId String // User ID from the auth provider
+
+    // Relations
+    user           User          @relation(fields: [userId], references: [id])
+    userId         String
+    authProvider   AuthProviders @relation(fields: [authProviderId], references: [id])
+    authProviderId Int
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([providerUserId, authProviderId])
+}
+
+model Post {
+    id       Int    @id @default(autoincrement())
+    title    String
+    slug     String @unique
+    content  String @db.Text
+    author   User   @relation(fields: [authorId], references: [id])
+    authorId String
+
+    // Relations
+    attachments PostAttachment[]
+    categories  Category[]
+    comments    PostComment[]
+    reactions   PostReaction[]
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model PostAttachment {
+    id       Int     @id @default(autoincrement())
+    url      String  @db.Text
+    mimeType String
+    fileName String
+    fileSize BigInt
+    type     Int
+    marker   String?
+    altText  String?
+    caption  String? @db.Text
+
+    // Relations
+    post   Post @relation(fields: [postId], references: [id])
+    postId Int
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Category {
+    id   Int    @id @default(autoincrement())
+    name String
+    slug String @unique
+
+    // Relations
+    posts Post[]
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model Reaction {
+    id   Int    @id @default(autoincrement())
+    type String
+
+    // Relations
+    postReactions PostReaction[]
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model PostComment {
+    id      Int    @id @default(autoincrement())
+    content String @db.Text
+
+    // Relations
+    author   User   @relation(fields: [authorId], references: [id])
+    authorId String
+    post     Post   @relation(fields: [postId], references: [id])
+    postId   Int
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+}
+
+model PostReaction {
+    id Int @id @default(autoincrement())
+
+    // Relations
+    user       User     @relation(fields: [userId], references: [id])
+    userId     String
+    post       Post     @relation(fields: [postId], references: [id])
+    postId     Int
+    reaction   Reaction @relation(fields: [reactionId], references: [id])
+    reactionId Int
+
+    // Timestamps
+    createdAt DateTime @default(now())
+    updatedAt DateTime @updatedAt
+
+    @@unique([userId, postId])
+}
